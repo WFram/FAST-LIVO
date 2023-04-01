@@ -110,6 +110,7 @@ int MIN_IMG_COUNT = 0;
 double res_mean_last = 0.05;
 //double gyr_cov_scale, acc_cov_scale;
 double gyr_cov_scale = 0, acc_cov_scale = 0;
+double b_gyr_cov = 0.00001, b_acc_cov = 0.00001;
 //double last_timestamp_lidar, last_timestamp_imu = -1.0;
 double last_timestamp_lidar = 0, last_timestamp_imu = -1.0, last_timestamp_img = -1.0;
 //double filter_size_corner_min, filter_size_surf_min, filter_size_map_min, fov_deg;
@@ -1109,6 +1110,8 @@ void readParameters(ros::NodeHandle &nh)
     nh.param<double>("mapping/fov_degree",fov_deg,180);
     nh.param<double>("mapping/gyr_cov_scale",gyr_cov_scale,1.0);
     nh.param<double>("mapping/acc_cov_scale",acc_cov_scale,1.0);
+    nh.param<double>("mapping/b_gyr_cov", b_gyr_cov, 0.00001);
+    nh.param<double>("mapping/b_acc_cov", b_acc_cov, 0.00001);
     nh.param<double>("preprocess/blind", p_pre->blind, 0.01);
     nh.param<int>("preprocess/lidar_type", p_pre->lidar_type, AVIA);
     nh.param<int>("preprocess/scan_line", p_pre->N_SCANS, 16);
@@ -1220,8 +1223,8 @@ int main(int argc, char** argv)
     p_imu->set_extrinsic(extT, extR);
     p_imu->set_gyr_cov_scale(V3D(gyr_cov_scale, gyr_cov_scale, gyr_cov_scale));
     p_imu->set_acc_cov_scale(V3D(acc_cov_scale, acc_cov_scale, acc_cov_scale));
-    p_imu->set_gyr_bias_cov(V3D(0.00001, 0.00001, 0.00001));
-    p_imu->set_acc_bias_cov(V3D(0.00001, 0.00001, 0.00001));
+    p_imu->set_gyr_bias_cov(V3D(b_gyr_cov, b_gyr_cov, b_gyr_cov));
+    p_imu->set_acc_bias_cov(V3D(b_acc_cov, b_acc_cov, b_acc_cov));
 
     #ifndef USE_IKFOM
     G.setZero();
