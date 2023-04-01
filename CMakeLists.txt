@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.11.4)
 project(fast_livo)
 
 SET(CMAKE_BUILD_TYPE "Debug")
@@ -61,22 +61,17 @@ find_package(catkin REQUIRED COMPONENTS
   image_transport
 )
 
-find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
 FIND_PACKAGE(OpenCV REQUIRED)
-FIND_PACKAGE(Sophus REQUIRED)
 FIND_PACKAGE(Boost REQUIRED COMPONENTS thread)
-set(Sophus_LIBRARIES libSophus.so)
-
-message(Eigen: ${EIGEN3_INCLUDE_DIR})
 
 include_directories(
 	${catkin_INCLUDE_DIRS} 
-  ${EIGEN3_INCLUDE_DIR}
+  ${eigen_INCLUDE_DIR}
   ${PCL_INCLUDE_DIRS}
   ${PYTHON_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
-  ${Sophus_INCLUDE_DIRS}
+  ${sophus_INCLUDE_DIR}
   include)
 
 add_message_files(
@@ -92,7 +87,7 @@ generate_messages(
 
 catkin_package(
   CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs message_runtime cv_bridge image_transport vikit_common vikit_ros
-  DEPENDS EIGEN3 PCL OpenCV Sophus
+  DEPENDS PCL OpenCV
   INCLUDE_DIRS include
 )
 
@@ -111,7 +106,8 @@ add_executable(fastlivo_mapping src/laserMapping.cpp
                                 src/IMU_Processing.cpp
                                 src/preprocess.cpp
                                 )
-target_link_libraries(fastlivo_mapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES} vio ikdtree)
+add_dependencies(fastlivo_mapping sophus eigen)
+target_link_libraries(fastlivo_mapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES} ${sophus_LIBS} vio ikdtree )
 target_include_directories(fastlivo_mapping PRIVATE ${PYTHON_INCLUDE_DIRS})
 
 # add_executable(kd_tree_test include/ikd-Tree/ikd_Tree.cpp src/kd_tree_test.cpp)
@@ -121,5 +117,3 @@ target_include_directories(fastlivo_mapping PRIVATE ${PYTHON_INCLUDE_DIRS})
 # target_link_libraries(ikd_Forest_Test ${PCL_LIBRARIES})
 
 # add_executable(fov_test src/fov_test.cpp include/FOV_Checker/FOV_Checker.cpp)
-
-
