@@ -160,6 +160,7 @@ struct MeasureGroup
 struct LidarMeasureGroup
 {
     double lidar_beg_time;
+    double lidar_end_time;
     double last_update_time;
     PointCloudXYZI::Ptr lidar;
     std::deque<struct MeasureGroup> measures;

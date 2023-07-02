@@ -514,6 +514,9 @@ void img_cbk(const sensor_msgs::ImageConstPtr& msg)
     sig_buffer.notify_all();
 }
 
+double lidar_mean_scantime = 0.0;
+int scan_num = 0;
+
 bool sync_packages(LidarMeasureGroup &meas)
 {
     if ((lidar_buffer.empty() && img_buffer.empty())) { // has lidar topic or img topic?
@@ -525,29 +528,32 @@ bool sync_packages(LidarMeasureGroup &meas)
         meas.measures.clear();
         meas.is_lidar_end = false;
     }
-    
+
     if (!lidar_pushed) { // If not in lidar scan, need to generate new meas
         if (lidar_buffer.empty()) {
             // ROS_ERROR("out sync");
             return false;
         }
         meas.lidar = lidar_buffer.front(); // push the firsrt lidar topic
+        meas.lidar_beg_time = time_buffer.front(); // generate lidar_beg_time
         if(meas.lidar->points.size() <= 1)
         {
-            mtx_buffer.lock();
-            if (img_buffer.size()>0) // temp method, ignore img topic when no lidar points, keep sync
-            {
-                lidar_buffer.pop_front();
-                img_buffer.pop_front();
-            }
-            mtx_buffer.unlock();
-            sig_buffer.notify_all();
-            // ROS_ERROR("out sync");
-            return false;
+            lidar_end_time = meas.lidar_beg_time + lidar_mean_scantime;  // 记录lidar结束时间为 起始时间 + 单帧扫描时间
+            ROS_WARN("Too few input point cloud!\n");
         }
-        sort(meas.lidar->points.begin(), meas.lidar->points.end(), time_list); // sort by sample timestamp
-        meas.lidar_beg_time = time_buffer.front(); // generate lidar_beg_time
-        lidar_end_time = meas.lidar_beg_time + meas.lidar->points.back().curvature / double(1000); // calc lidar scan end time
+        else if (meas.lidar->points.back().curvature / double(1000) <
+                 0.5 * lidar_mean_scantime) {
+            lidar_end_time = meas.lidar_beg_time + lidar_mean_scantime;
+        }
+        else {
+            scan_num++;
+            lidar_end_time = meas.lidar_beg_time + meas.lidar->points.back().curvature /
+                                                   double(1000);  //结束时间设置为 起始时间 + 最后一个点的时间（相对）
+            // 动态更新每帧lidar数据平均扫描时间
+            lidar_mean_scantime += (meas.lidar->points.back().curvature / double(1000) - lidar_mean_scantime) / scan_num;
+        }
+        meas.lidar_end_time = lidar_end_time; //0 7
+
         lidar_pushed = true; // flag
     }
 
@@ -582,7 +588,7 @@ bool sync_packages(LidarMeasureGroup &meas)
     // cout<<"img_time_buffer.front(): "<<img_time_buffer.front()<<"lidar_end_time: "<<lidar_end_time<<"last_timestamp_imu: "<<last_timestamp_imu<<endl;
     if ((img_time_buffer.front()>lidar_end_time) )
     { // has img topic, but img topic timestamp larger than lidar end time, process lidar topic.
-        if (last_timestamp_imu < lidar_end_time+0.02) 
+        if (last_timestamp_imu < lidar_end_time+0.02)
         {
             // ROS_ERROR("out sync");
             return false;
@@ -590,7 +596,7 @@ bool sync_packages(LidarMeasureGroup &meas)
         double imu_time = imu_buffer.front()->header.stamp.toSec();
         m.imu.clear();
         mtx_buffer.lock();
-        while ((!imu_buffer.empty() && (imu_time<lidar_end_time))) 
+        while ((!imu_buffer.empty() && (imu_time<lidar_end_time)))
         {
             imu_time = imu_buffer.front()->header.stamp.toSec();
             if(imu_time > lidar_end_time) break;
@@ -605,10 +611,10 @@ bool sync_packages(LidarMeasureGroup &meas)
         meas.is_lidar_end = true;
         meas.measures.push_back(m);
     }
-    else 
+    else
     {
         double img_start_time = img_time_buffer.front(); // process img topic, record timestamp
-        if (last_timestamp_imu < img_start_time) 
+        if (last_timestamp_imu < img_start_time)
         {
             // ROS_ERROR("out sync");
             return false;
@@ -618,7 +624,7 @@ bool sync_packages(LidarMeasureGroup &meas)
         m.img_offset_time = img_start_time - meas.lidar_beg_time; // record img offset time, it shoule be the Kalman update timestamp.
         m.img = img_buffer.front();
         mtx_buffer.lock();
-        while ((!imu_buffer.empty() && (imu_time<img_start_time))) 
+        while ((!imu_buffer.empty() && (imu_time<img_start_time)))
         {
             imu_time = imu_buffer.front()->header.stamp.toSec();
             if(imu_time > img_start_time) break;
@@ -629,7 +635,7 @@ bool sync_packages(LidarMeasureGroup &meas)
         img_time_buffer.pop_front();
         mtx_buffer.unlock();
         sig_buffer.notify_all();
-        meas.is_lidar_end = false; // has img topic in lidar scan, so flag "is_lidar_end=false" 
+        meas.is_lidar_end = false; // has img topic in lidar scan, so flag "is_lidar_end=false"
         meas.measures.push_back(m);
     }
     // ROS_ERROR("out sync");
@@ -1115,6 +1121,7 @@ void readParameters(ros::NodeHandle &nh)
     nh.param<double>("preprocess/blind", p_pre->blind, 0.01);
     nh.param<int>("preprocess/lidar_type", p_pre->lidar_type, AVIA);
     nh.param<int>("preprocess/scan_line", p_pre->N_SCANS, 16);
+    nh.param<int>("preprocess/scan_rate", p_pre->SCAN_RATE, 10);
     nh.param<int>("point_filter_num", p_pre->point_filter_num, 2);
     nh.param<bool>("feature_extract_enable", p_pre->feature_enabled, 0);
     nh.param<vector<double>>("mapping/extrinsic_T", extrinT, vector<double>());
@@ -1220,7 +1227,7 @@ int main(int argc, char** argv)
     lidar_selector->ncc_en = ncc_en;
     lidar_selector->init();
     
-    p_imu->set_extrinsic(extT, extR);
+    p_imu->set_extrinsic(extT, extR); // 15
     p_imu->set_gyr_cov_scale(V3D(gyr_cov_scale, gyr_cov_scale, gyr_cov_scale));
     p_imu->set_acc_cov_scale(V3D(acc_cov_scale, acc_cov_scale, acc_cov_scale));
     p_imu->set_gyr_bias_cov(V3D(b_gyr_cov, b_gyr_cov, b_gyr_cov));

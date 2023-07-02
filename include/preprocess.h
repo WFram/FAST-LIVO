@@ -37,6 +37,7 @@ namespace velodyne_ros {
   struct EIGEN_ALIGN16 Point {
       PCL_ADD_POINT4D;
       float intensity;
+      float time;
       uint16_t ring;
       EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   };
@@ -46,6 +47,7 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(velodyne_ros::Point,
     (float, y, y)
     (float, z, z)
     (float, intensity, intensity)
+    (float, time, time)
     (uint16_t, ring, ring)
 )
 
@@ -92,9 +94,9 @@ class Preprocess
   PointCloudXYZI pl_full, pl_corn, pl_surf;
   PointCloudXYZI pl_buff[128]; //maximum 128 line lidar
   vector<orgtype> typess[128]; //maximum 128 line lidar
-  int lidar_type, point_filter_num, N_SCANS;;
+  int lidar_type, point_filter_num, N_SCANS, SCAN_RATE;
   double blind;
-  bool feature_enabled;
+  bool feature_enabled, given_offset_time;
   ros::Publisher pub_full, pub_surf, pub_corn;
     
 
