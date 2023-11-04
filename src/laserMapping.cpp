@@ -535,24 +535,22 @@ bool sync_packages(LidarMeasureGroup &meas)
             return false;
         }
         meas.lidar = lidar_buffer.front(); // push the firsrt lidar topic
-        meas.lidar_beg_time = time_buffer.front(); // generate lidar_beg_time
         if(meas.lidar->points.size() <= 1)
         {
-            lidar_end_time = meas.lidar_beg_time + lidar_mean_scantime;  // 记录lidar结束时间为 起始时间 + 单帧扫描时间
-            ROS_WARN("Too few input point cloud!\n");
+            mtx_buffer.lock();
+            if (img_buffer.size()>0) // temp method, ignore img topic when no lidar points, keep sync
+            {
+                lidar_buffer.pop_front();
+                img_buffer.pop_front();
+            }
+            mtx_buffer.unlock();
+            sig_buffer.notify_all();
+            // ROS_ERROR("out sync");
+            return false;
         }
-        else if (meas.lidar->points.back().curvature / double(1000) <
-                 0.5 * lidar_mean_scantime) {
-            lidar_end_time = meas.lidar_beg_time + lidar_mean_scantime;
-        }
-        else {
-            scan_num++;
-            lidar_end_time = meas.lidar_beg_time + meas.lidar->points.back().curvature /
-                                                   double(1000);  //结束时间设置为 起始时间 + 最后一个点的时间（相对）
-            // 动态更新每帧lidar数据平均扫描时间
-            lidar_mean_scantime += (meas.lidar->points.back().curvature / double(1000) - lidar_mean_scantime) / scan_num;
-        }
-        meas.lidar_end_time = lidar_end_time; //0 7
+        sort(meas.lidar->points.begin(), meas.lidar->points.end(), time_list); // sort by sample timestamp
+        meas.lidar_beg_time = time_buffer.front(); // generate lidar_beg_time
+        lidar_end_time = meas.lidar_beg_time + meas.lidar->points.back().curvature / double(1000); // calc lidar scan end time
 
         lidar_pushed = true; // flag
     }
