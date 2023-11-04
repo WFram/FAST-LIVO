@@ -1273,7 +1273,6 @@ int main(int argc, char** argv)
         if(!sync_packages(LidarMeasures))
         {
             status = ros::ok();
-            cv::waitKey(1);
             rate.sleep();
             continue;
         }
