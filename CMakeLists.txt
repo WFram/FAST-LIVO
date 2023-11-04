@@ -14,6 +14,7 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -std=c++0x -std=c++14 -fexceptions")
+SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake_modules/")
 
 message("Current CPU archtecture: ${CMAKE_SYSTEM_PROCESSOR}")
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)" )
@@ -61,17 +62,19 @@ find_package(catkin REQUIRED COMPONENTS
   image_transport
 )
 
+find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
-FIND_PACKAGE(OpenCV REQUIRED)
-FIND_PACKAGE(Boost REQUIRED COMPONENTS thread)
+find_package(Sophus REQUIRED)
+find_package(OpenCV REQUIRED)
+find_package(Boost REQUIRED COMPONENTS thread)
 
 include_directories(
 	${catkin_INCLUDE_DIRS} 
-  ${eigen_INCLUDE_DIR}
+  ${Eigen_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
   ${PYTHON_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
-  ${sophus_INCLUDE_DIR}
+  ${Sophus_INCLUDE_DIRS}
   include)
 
 add_message_files(
@@ -87,7 +90,7 @@ generate_messages(
 
 catkin_package(
   CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs message_runtime cv_bridge image_transport vikit_common vikit_ros
-  DEPENDS PCL OpenCV
+  DEPENDS EIGEN3 PCL OpenCV Sophus
   INCLUDE_DIRS include
 )
 
@@ -106,8 +109,7 @@ add_executable(fastlivo_mapping src/laserMapping.cpp
                                 src/IMU_Processing.cpp
                                 src/preprocess.cpp
                                 )
-add_dependencies(fastlivo_mapping sophus eigen)
-target_link_libraries(fastlivo_mapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES} ${sophus_LIBS} vio ikdtree )
+target_link_libraries(fastlivo_mapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES} ${Sophus_LIBRARIES} vio ikdtree)
 target_include_directories(fastlivo_mapping PRIVATE ${PYTHON_INCLUDE_DIRS})
 
 # add_executable(kd_tree_test include/ikd-Tree/ikd_Tree.cpp src/kd_tree_test.cpp)
